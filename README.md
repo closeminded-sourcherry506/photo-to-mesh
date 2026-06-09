@@ -1,7 +1,13 @@
-# object-scan
+# photo-to-mesh
 
 Turn photos of a real object into a **clean, scaled, downloadable 3D mesh** — with
 an interactive **web GUI** as the primary interface.
+
+<p align="center">
+  <img src="assets/hero.gif" width="320" alt="Turntable of a mesh reconstructed from a single phone photo of a spray bottle">
+  <br>
+  <em>One phone photo → a watertight 3D mesh (Hunyuan3D), object isolated with SAM 3.</em>
+</p>
 
 The core engine is **Hunyuan3D** (single-image *and* multi-view), front-ended by
 **SAM 3** for object isolation. A second, photogrammetric path (**VGGT → mesh /

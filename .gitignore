@@ -37,3 +37,6 @@ data/masks/*
 .DS_Store
 .idea/
 .vscode/
+
+# Allow the README hero image (overrides the *.gif rule above)
+!assets/hero.gif
