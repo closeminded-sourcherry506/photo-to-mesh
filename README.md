@@ -4,9 +4,9 @@ Turn photos of a real object into a **clean, scaled, downloadable 3D mesh** — 
 an interactive **web GUI** as the primary interface.
 
 <p align="center">
-  <img src="assets/hero.gif" width="320" alt="Turntable of a mesh reconstructed from a single phone photo of a spray bottle">
+  <img src="assets/hero.gif" width="320" alt="Turntable of a 3D mesh of a spray bottle reconstructed from multiple photos">
   <br>
-  <em>One phone photo → a watertight 3D mesh (Hunyuan3D), object isolated with SAM 3.</em>
+  <em>A few phone photos → a 3D mesh (Hunyuan3D multi-view), object isolated with SAM 3.</em>
 </p>
 
 The core engine is **Hunyuan3D** (single-image *and* multi-view), front-ended by
