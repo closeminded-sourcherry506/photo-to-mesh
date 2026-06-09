@@ -1,0 +1,39 @@
+# Python / uv
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.python-version
+
+# Cloned third-party engine (re-cloned by ./setup.sh routeC)
+routeC_feedforward/Hunyuan3D-2.1/
+routeB_2dgs/2d-gaussian-splatting/
+
+# Model weights / checkpoints (downloaded by setup.sh)
+checkpoints/
+*.ckpt
+*.safetensors
+*.pth
+
+# Generated meshes / renders / logs
+data/output/*
+!data/output/.gitkeep
+*.glb
+*.obj
+*.ply
+*.stl
+*.mp4
+*.gif
+gui.log
+nohup.out
+
+# Personal capture data (kept out of the public repo)
+data/images/*
+data/masks/*
+!data/images/.gitkeep
+!data/masks/.gitkeep
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
