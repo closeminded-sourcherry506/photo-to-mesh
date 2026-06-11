@@ -1,0 +1,40 @@
+name: Bug report
+description: Setup failed, generation crashed, or the output is wrong
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you run or click, what did you expect, and what happened instead? Paste the full error / traceback.
+    validations:
+      required: true
+  - type: input
+    id: command
+    attributes:
+      label: Exact command or GUI action
+      placeholder: "./setup.sh routeC && ./run_gui.sh → Generate (multi-view tab)"
+    validations:
+      required: true
+  - type: input
+    id: gpu
+    attributes:
+      label: GPU + VRAM
+      placeholder: "RTX 4090, 24 GB"
+    validations:
+      required: true
+  - type: input
+    id: driver
+    attributes:
+      label: NVIDIA driver + torch wheel index
+      placeholder: "driver 570.x, cu128 (default)"
+  - type: input
+    id: system
+    attributes:
+      label: OS + system RAM + Python
+      placeholder: "Ubuntu 24.04, 32 GB, Python 3.12 (uv)"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      render: shell
