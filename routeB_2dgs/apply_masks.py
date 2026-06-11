@@ -15,6 +15,21 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
+MASK_EXTS = (".png", ".jpg")
+
+
+def find_mask(masks: Path, stem: str, index: int, ordered: list[Path]) -> Path | None:
+    """Mask for scene image `stem` (e.g. img_0003): try the same stem first, then
+    fall back to position — pose_vggt renames scene images to img_%04d.png while
+    masks keep the ORIGINAL photo stems, but both follow the same sorted order."""
+    for ext in MASK_EXTS:
+        cand = masks / f"{stem}{ext}"
+        if cand.exists():
+            return cand
+    if 0 <= index < len(ordered):
+        return ordered[index]
+    return None
+
 
 def main() -> None:
     ap = argparse.ArgumentParser()
@@ -29,22 +44,25 @@ def main() -> None:
         shutil.copytree(img_dir, raw_dir)
 
     masks = Path(args.masks)
+    images = sorted(raw_dir.iterdir())
+    ordered = sorted(p for p in masks.iterdir() if p.suffix.lower() in MASK_EXTS) if masks.is_dir() else []
+    # positional pairing is only sound when the sets line up 1:1
+    by_index = ordered if len(ordered) == len(images) else []
+
     fill = 0 if args.bg == "black" else 255
     n = 0
-    for p in sorted(raw_dir.iterdir()):
+    for i, p in enumerate(images):
         img = np.array(Image.open(p).convert("RGB"))
         h, w = img.shape[:2]
-        # masks were computed on the ORIGINAL images; match by stem, resize to processed size
-        mp = next((masks / f"{p.stem}{e}" for e in (".png", ".jpg") if (masks / f"{p.stem}{e}").exists()), None)
-        if mp is None:
-            # also try the original (pre-VGGT) stem mapping is 1:1 by index name img_XXXX
-            mp = masks / f"{p.stem}.png"
-        if mp.exists():
+        mp = find_mask(masks, p.stem, i, by_index)
+        if mp is not None:
             m = np.array(Image.open(mp).convert("L").resize((w, h), Image.NEAREST)) > 127
             img[~m] = fill
             n += 1
         Image.fromarray(img).save(img_dir / p.name)
-    print(f"Masked {n} images (bg={args.bg}) -> {img_dir}")
+    print(f"Masked {n}/{len(images)} images (bg={args.bg}) -> {img_dir}")
+    if n == 0:
+        print("[warn] no masks matched — check --masks contents (expected one mask per input photo)")
 
 
 if __name__ == "__main__":

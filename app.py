@@ -81,6 +81,8 @@ def sam3_mask(image: Image.Image, prompt: str) -> Image.Image:
     if masks.ndim == 4:
         masks = masks[:, 0]
     if len(scores) == 0 or scores.max() < 0.3:
+        gr.Warning(f'SAM 3 found no confident match for "{prompt}" — keeping the full image. '
+                   "Try a more specific prompt, or switch to rembg auto.")
         return Image.new("L", (w, h), 255)
     m = (masks[int(scores.argmax())] > 0.5).astype(np.uint8) * 255
     return Image.fromarray(m).resize((w, h), Image.NEAREST)
@@ -163,7 +165,7 @@ def gen_single(image, bg_mode, prompt, steps, octree, guidance, seed, keep_large
         raise gr.Error("Upload an image first.")
     image = Image.fromarray(image) if isinstance(image, np.ndarray) else image
     rgba, preview = prep_rgba(image, bg_mode, prompt)
-    gen = torch.Generator(device=DEVICE).manual_seed(int(seed))
+    gen = torch.Generator(device=DEVICE).manual_seed(int(seed or 0))   # field can be cleared -> None
     mesh = single_pipe()(image=rgba, num_inference_steps=int(steps), octree_resolution=int(octree),
                          guidance_scale=float(guidance), generator=gen, output_type="trimesh")[0]
     glb, dl, info = _finish(mesh, keep_largest, "single", real_size, size_unit, axis, obj_unit)
@@ -181,7 +183,7 @@ def gen_mv(front, left, back, right, bg_mode, prompt, steps, octree, guidance, s
         rgba, prev = prep_rgba(im, bg_mode, prompt)
         views[tag] = rgba
         previews.append(np.array(prev.convert("RGB")))
-    gen = torch.Generator(device=DEVICE).manual_seed(int(seed))
+    gen = torch.Generator(device=DEVICE).manual_seed(int(seed or 0))   # field can be cleared -> None
     mesh = mv_pipe()(image=views, num_inference_steps=int(steps), octree_resolution=int(octree),
                      guidance_scale=float(guidance), generator=gen, output_type="trimesh")[0]
     glb, dl, info = _finish(mesh, keep_largest, "mv", real_size, size_unit, axis, obj_unit)

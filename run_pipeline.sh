@@ -12,6 +12,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+[ -f .venv/bin/activate ] || { echo "error: .venv missing — run ./setup.sh core first" >&2; exit 1; }
 # shellcheck disable=SC1091
 source .venv/bin/activate
 
@@ -55,7 +56,14 @@ if [[ "$ROUTES" == *B* ]]; then
 fi
 
 if [[ "$ROUTES" == *C* ]]; then
-  IMG="${IMAGE:-data/images/img_0000.png}"
+  IMG="$IMAGE"
+  if [ -z "$IMG" ]; then
+    # default to the first photo (frames_from_video writes .jpg, phones write either)
+    IMG="$(find data/images -maxdepth 1 -type f \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' \) | sort | head -n1)"
+  fi
+  if [ -z "$IMG" ] || [ ! -f "$IMG" ]; then
+    echo "Route C: no input image found in data/images (or pass --image)" >&2; exit 1
+  fi
   STEM="$(basename "${IMG%.*}")"
   echo "== Route C: Hunyuan3D from $IMG =="
   python routeC_feedforward/run_hunyuan.py --image "$IMG" \

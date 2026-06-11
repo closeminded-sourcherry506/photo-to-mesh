@@ -31,5 +31,5 @@ jobs:
         run: python -m compileall -q app.py src routeA_photogrammetry routeB_2dgs routeC_feedforward tests
       - name: Run unit tests
         run: |
-          pip install pytest
+          pip install pytest numpy pillow
           pytest tests/ -q
