@@ -32,6 +32,11 @@ data/images/*
 data/masks/*
 !data/images/.gitkeep
 !data/masks/.gitkeep
+# ...except a small sample photo so the quickstart works with zero user assets
+!data/images/sample.*
+
+# Engine clone made by the HF Space variant (space/app.py)
+space/Hunyuan3D-2.1/
 
 # OS / editor
 .DS_Store

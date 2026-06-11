@@ -208,6 +208,7 @@ photo-to-mesh/
 │   └── Hunyuan3D-2.1/         # cloned by `setup.sh routeC` (pinned revision)
 ├── routeA_photogrammetry/mesh_from_pointmap.py
 ├── routeB_2dgs/{run_2dgs.sh, apply_masks.py}
+├── space/                     # Hugging Face Space demo (see space/DEPLOY.md)
 ├── tests/                     # unit tests (run in CI)
 └── data/{images, masks, output}/
 ```
