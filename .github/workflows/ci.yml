@@ -28,7 +28,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Syntax-check all Python sources
-        run: python -m compileall -q app.py src routeA_photogrammetry routeB_2dgs routeC_feedforward tests
+        run: python -m compileall -q app.py src routeA_photogrammetry routeB_2dgs routeC_feedforward space tests
       - name: Run unit tests
         run: |
           pip install pytest numpy pillow
