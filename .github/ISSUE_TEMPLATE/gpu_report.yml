@@ -1,0 +1,40 @@
+name: GPU compatibility report
+description: Tell us it worked (or didn't) on your card — two minutes, hugely useful
+labels: ["gpu-report"]
+body:
+  - type: input
+    id: gpu
+    attributes:
+      label: GPU + VRAM
+      placeholder: "RTX 3080, 10 GB"
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: What did you run?
+      multiple: true
+      options:
+        - Single image (GUI)
+        - Multi-view 2mv (GUI)
+        - CLI (run_hunyuan.py)
+        - Texture stage
+        - Route A (VGGT mesh)
+        - Route B (2DGS)
+    validations:
+      required: true
+  - type: dropdown
+    id: outcome
+    attributes:
+      label: Outcome
+      options:
+        - "✅ worked"
+        - "⚠️ worked with tweaks (describe below)"
+        - "❌ failed (describe below)"
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Settings that mattered (octree resolution, steps), peak VRAM if you know it, driver version, tweaks, or errors.

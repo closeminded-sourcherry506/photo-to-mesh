@@ -1,4 +1,4 @@
-"""Shared helpers for the object-scan pipeline."""
+"""Shared helpers for the photo-to-mesh pipeline."""
 from __future__ import annotations
 import os
 import glob

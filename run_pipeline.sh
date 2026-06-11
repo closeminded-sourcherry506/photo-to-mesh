@@ -12,6 +12,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+# shellcheck disable=SC1091
 source .venv/bin/activate
 
 PROMPT=""; VIDEO=""; ROUTES="AB"; IMAGE=""; SCENE="data/output/scene"
@@ -39,6 +40,7 @@ fi
 # --- shared: VGGT poses + point map (Routes A/B only) ---
 if [[ "$ROUTES" == *A* || "$ROUTES" == *B* ]]; then
   echo "== VGGT poses =="
+  # shellcheck disable=SC2086  # MASK_ARG is intentionally word-split ("--masks data/masks" or empty)
   python src/pose_vggt.py --images data/images $MASK_ARG --scene "$SCENE"
 fi
 
