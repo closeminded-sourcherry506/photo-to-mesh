@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Interactive GUI for Route C (Hunyuan3D) — two modes:
+"""photo-to-mesh GUI (Hunyuan3D engine) — two modes:
   • Single image  (Hunyuan3D-2.1, generative from one view)
   • Multi-view     (Hunyuan3D-2mv, 1-4 named views: front/left/back/right)
 
@@ -20,6 +20,9 @@ import gradio as gr
 
 ROOT = Path(__file__).resolve().parent
 HY = ROOT / "routeC_feedforward" / "Hunyuan3D-2.1"
+if not (HY / "hy3dshape").is_dir():
+    sys.exit("Hunyuan3D-2.1 engine not found at routeC_feedforward/Hunyuan3D-2.1.\n"
+             "Run:  ./setup.sh core && ./setup.sh routeC   (see README — Quickstart)")
 sys.path.insert(0, str(HY / "hy3dshape"))
 sys.path.insert(0, str(ROOT / "routeC_feedforward"))   # for hy3dgen_compat
 sys.path.insert(0, str(ROOT / "src"))
@@ -36,23 +39,29 @@ torch.load = _mmap_load
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 SAVE = ROOT / "data" / "output"; SAVE.mkdir(parents=True, exist_ok=True)
 
-from hy3dshape.pipelines import Hunyuan3DDiTFlowMatchingPipeline
+# Pipelines load lazily so the GUI comes up instantly; the first generate of each
+# mode pays the model-load (and, once ever, the weight-download) cost.
+_PIPES: dict = {}
 
-print("Loading Hunyuan3D-2.1 single-image shape model ...")
-SHAPE = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(
-    "tencent/Hunyuan3D-2.1", device=DEVICE, dtype=torch.float16)
-print("Single-image model ready.")
+def single_pipe():
+    if "single" not in _PIPES:
+        from hy3dshape.pipelines import Hunyuan3DDiTFlowMatchingPipeline
+        print("Loading Hunyuan3D-2.1 single-image shape model (downloads on first run) ...")
+        _PIPES["single"] = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(
+            "tencent/Hunyuan3D-2.1", device=DEVICE, dtype=torch.float16)
+        print("Single-image model ready.")
+    return _PIPES["single"]
 
-_MV = {"pipe": None}      # lazy: Hunyuan3D-2mv (loads on first multi-view generate)
 def mv_pipe():
-    if _MV["pipe"] is None:
+    if "mv" not in _PIPES:
         import hy3dgen_compat  # noqa: F401  aliases hy3dgen.shapegen -> hy3dshape
-        print("Loading Hunyuan3D-2mv multi-view model ...")
-        _MV["pipe"] = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(
+        from hy3dshape.pipelines import Hunyuan3DDiTFlowMatchingPipeline
+        print("Loading Hunyuan3D-2mv multi-view model (downloads on first run) ...")
+        _PIPES["mv"] = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(
             "tencent/Hunyuan3D-2mv", subfolder="hunyuan3d-dit-v2-mv",
             use_safetensors=True, device=DEVICE, dtype=torch.float16)
         print("Multi-view model ready.")
-    return _MV["pipe"]
+    return _PIPES["mv"]
 
 _SAM = {"proc": None}     # lazy SAM 3
 def sam3_mask(image: Image.Image, prompt: str) -> Image.Image:
@@ -144,8 +153,8 @@ def gen_single(image, bg_mode, prompt, steps, octree, guidance, seed, keep_large
     image = Image.fromarray(image) if isinstance(image, np.ndarray) else image
     rgba, preview = prep_rgba(image, bg_mode, prompt)
     gen = torch.Generator(device=DEVICE).manual_seed(int(seed))
-    mesh = SHAPE(image=rgba, num_inference_steps=int(steps), octree_resolution=int(octree),
-                 guidance_scale=float(guidance), generator=gen, output_type="trimesh")[0]
+    mesh = single_pipe()(image=rgba, num_inference_steps=int(steps), octree_resolution=int(octree),
+                         guidance_scale=float(guidance), generator=gen, output_type="trimesh")[0]
     glb, dl, info = _finish(mesh, keep_largest, "single", real_mm, axis, unit)
     return preview, glb, dl, info
 
@@ -176,7 +185,7 @@ default_img = str(_imgs[0]) if _imgs else None
 
 def _controls():
     bg = gr.Radio(["SAM 3 prompt", "rembg auto", "none"], value="SAM 3 prompt", label="Background removal")
-    prompt = gr.Textbox(value="the blue spray bottle", label="SAM 3 prompt (object to keep)")
+    prompt = gr.Textbox(value="the object", label='SAM 3 prompt — name the object to keep, e.g. "the blue mug"')
     steps = gr.Slider(20, 100, value=50, step=5, label="Diffusion steps")
     octree = gr.Slider(128, 512, value=384, step=64, label="Octree resolution (detail)")
     guidance = gr.Slider(1.0, 15.0, value=7.5, step=0.5, label="Guidance scale")
@@ -189,8 +198,8 @@ def _controls():
     return bg, prompt, steps, octree, guidance, seed, keep, real_size, axis, unit
 
 
-with gr.Blocks(title="Object Scan — Route C (Hunyuan3D)") as demo:
-    gr.Markdown("## Object Scan · Route C (Hunyuan3D)\nGenerate a mesh from **one image** or **multiple views**, then orbit it on the right.")
+with gr.Blocks(title="photo-to-mesh") as demo:
+    gr.Markdown("## photo-to-mesh · Hunyuan3D\nGenerate a mesh from **one image** or **multiple views**, then orbit it on the right.")
     with gr.Tabs():
         # ---------------- Single image ----------------
         with gr.Tab("Single image (2.1)"):

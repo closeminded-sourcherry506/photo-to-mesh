@@ -1,11 +1,14 @@
 [project]
-name = "object-scan"
+name = "photo-to-mesh"
 version = "0.1.0"
-description = "Scan an object from a handheld camera and get an object-only mesh, three ways: (A) VGGT point-map -> Open3D mesh, (B) VGGT poses -> 2D Gaussian Splatting -> TSDF mesh, (C) Hunyuan3D / TRELLIS feed-forward."
+description = "Turn photos of a real object into a clean, scaled, 3D-printable mesh: Hunyuan3D (single + multi-view) web GUI with SAM 3 masking, plus experimental VGGT / 2D Gaussian Splatting reconstruction routes."
 requires-python = ">=3.10,<3.13"
 
-# Core deps shared by SAM2 masking + VGGT pose + Route A meshing.
-# Torch is installed separately by setup.sh from the cu128 index (Blackwell / RTX 5090 needs CUDA 12.8 wheels).
+# Core deps shared by SAM 3 masking + VGGT pose + Route A meshing + the GUI.
+# Torch is installed separately by setup.sh from a CUDA wheel index (cu128 by
+# default — required for Blackwell/RTX 50xx, fine on Ampere and newer).
+# rembg (the GUI's "rembg auto" mode) and the Hunyuan engine deps come from
+# `./setup.sh routeC` (the engine's own requirements.txt).
 dependencies = [
     "numpy<2.2",
     "pillow",
@@ -18,12 +21,18 @@ dependencies = [
     "einops",
     "scipy",
     "matplotlib",
+    "gradio",
 ]
 
-# Torch is NOT pinned here on purpose — installed via the cu128 index in setup.sh.
-[tool.uv]
-# Allow torch to come from the PyTorch cu128 index.
-override-dependencies = []
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.8"]
 
-[tool.uv.sources]
-# VGGT is installed from GitHub by setup.sh (editable), not from PyPI.
+[tool.ruff]
+line-length = 120
+# Third-party engines cloned by setup.sh — not ours to lint.
+extend-exclude = ["routeC_feedforward/Hunyuan3D-2.1", "routeB_2dgs/2d-gaussian-splatting"]
+
+[tool.ruff.lint]
+# E402: imports after sys.path setup are deliberate.
+# E702/E731: the compact one-statement-per-thought style used throughout.
+ignore = ["E402", "E702", "E731"]

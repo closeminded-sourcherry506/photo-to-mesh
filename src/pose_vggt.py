@@ -50,7 +50,7 @@ def rotmat_to_qvec(R: np.ndarray) -> np.ndarray:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--images", default="data/images")
-    ap.add_argument("--masks", default=None, help="optional SAM2 mask folder -> object-only points")
+    ap.add_argument("--masks", default=None, help="optional SAM 3 mask folder -> object-only points")
     ap.add_argument("--scene", default="data/output/scene")
     ap.add_argument("--conf", type=float, default=50.0,
                     help="keep points above this confidence percentile (0-100)")
