@@ -75,27 +75,37 @@ Two tabs, both with the same controls:
 | Guidance scale | faithfulness to the image (default 7.5) |
 | Seed | change for different plausible back-sides |
 | Keep largest component | drops stray floaters |
-| **Known real size (mm)** + axis | impose metric scale (see [Scale & resize](#scale--resize)) |
-| **GLB unit** (`mm`/`cm`/`m`) | unit the downloaded GLB is encoded in |
+| **Known real size** + unit + axis | impose metric scale, typed in the unit you measured in (see [Scale & resize](#scale--resize)) |
+| **OBJ numbers unit** (`mm`/`cm`/`in`) | unit the OBJ's raw numbers are written in — the GLB is **always metres** (glTF standard) and the STL **always mm** (slicer standard) |
 | **↺ Resize & re-export** | re-scale the *last* mesh instantly — **no GPU re-run** |
 
-**Outputs** (in `data/output/`): an interactive orbit viewer, a downloadable
-`gui_<mode>_<unit>.glb`, and a millimetre `gui_<mode>.stl` for slicers.
+**Outputs** (in `data/output/`): an interactive orbit viewer plus downloads —
+`gui_<mode>.glb` (metres), `gui_<mode>.stl` (mm), `gui_<mode>_<unit>.obj`.
 
 ## Scale & resize
 
 Images carry **no absolute size**, so scale is *imposed*, not measured:
 
-1. Measure one real dimension of the object (e.g. bottle height ≈ `255` mm).
-2. Enter it in **Known real size (mm)** and pick the axis (`tallest` is robust).
-3. The mesh is scaled so that dimension matches; the readout shows the bounding box.
-4. Choose **GLB unit** so the file is physically correct where you open it:
+1. Measure one real dimension of the object (e.g. bottle height ≈ 25 cm).
+2. Enter it as **Known real size**, pick the unit you measured in (`mm`/`cm`/`in`),
+   and the axis (`tallest` is robust).
+3. The readout echoes the result in **mm, cm and m** — if that doesn't match
+   your ruler, the entry was wrong; fix it and hit **↺ Resize** (no GPU re-run).
 
-| Opening in… | GLB unit | Why |
+Each download is written in the unit its consumers actually assume. In
+particular, glTF has **no unit field** — the spec hard-defines 1 unit = 1 metre —
+so "a GLB in cm" is not something Blender/Unity/three.js can ever read at the
+right size (it imports 100× too big). That's why the GLB unit is not a choice:
+
+| File | Numbers are in | Open it in |
 |---|---|---|
-| Blender / Unity / three.js / web glTF viewers | **m** | glTF's native unit is metres |
-| A tool where you type/expect mm | **mm** | numbers are literal millimetres |
-| A 3D-print slicer | use the **STL** | STL is unitless; slicers assume mm |
+| `.glb` | **metres** — fixed, the glTF standard | Blender / Unity / three.js / web viewers |
+| `.stl` | **mm** — fixed, what slicers assume | any 3D-print slicer |
+| `.obj` | **your choice** (default mm) | tools where you type/expect raw numbers |
+
+> Until a real size is set, the mesh stays in Hunyuan's normalized units
+> (longest axis ≈ 2.0). The GLB is still produced for viewing, but STL/OBJ are
+> held back so a "2 mm bottle" never reaches a slicer by accident.
 
 > **Note on the bounding box readout:** the three numbers are `mesh.extents`
 > (`max−min` per axis) in normalized units; one is always ≈2.0 because Hunyuan fits
@@ -114,6 +124,9 @@ python routeC_feedforward/run_hunyuan.py \
 # turntable preview of any mesh
 python src/turntable.py data/output/mesh.glb --out data/output/mesh_turntable
 ```
+
+> CLI exports are in Hunyuan's normalized units (no scaling step yet) — use the
+> GUI for scaled, slicer-ready output.
 
 ## How it works — Hunyuan3D
 
@@ -187,6 +200,7 @@ photo-to-mesh/
 │   ├── pose_vggt.py           # VGGT poses + point map -> COLMAP-format scene
 │   ├── turntable.py           # headless GIF/MP4 turntable for any mesh
 │   ├── frames_from_video.py   # video -> sharp frames
+│   ├── mesh_units.py          # unit conversions for export (tested in CI)
 │   └── common.py
 ├── routeC_feedforward/
 │   ├── run_hunyuan.py         # CLI single-image Hunyuan

@@ -18,6 +18,7 @@ Usage:
 """
 from __future__ import annotations
 import argparse
+import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -90,7 +91,7 @@ def main() -> None:
         paint = Hunyuan3DPaintPipeline(Hunyuan3DPaintConfig(max_num_view=args.views, resolution=args.res))
         textured = paint(shape_path, image_path=img_path)   # returns a path or mesh
         if isinstance(textured, (str, Path)):
-            Path(textured).replace(out)
+            shutil.move(str(textured), str(out))   # rename() would fail across filesystems
         else:
             textured.export(out)
         print(f"Mesh (textured) -> {out}")

@@ -47,6 +47,8 @@ def main() -> None:
     ap.add_argument("--color", default="0.45,0.6,0.95", help="base RGB 0-1")
     args = ap.parse_args()
 
+    if not shutil.which("ffmpeg"):
+        raise SystemExit("ffmpeg not found on PATH — install it first (e.g. apt install ffmpeg).")
     V, F = load_decimated(args.mesh, args.faces)
 
     # center, scale to unit, and stand the longest axis up (-> plot Z)

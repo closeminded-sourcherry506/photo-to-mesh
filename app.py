@@ -27,6 +27,8 @@ sys.path.insert(0, str(HY / "hy3dshape"))
 sys.path.insert(0, str(ROOT / "routeC_feedforward"))   # for hy3dgen_compat
 sys.path.insert(0, str(ROOT / "src"))
 
+from mesh_units import FROM_MM, echo_units, scale_factor, size_to_mm  # noqa: E402
+
 # --- path-aware mmap load (avoids 30 GB-RAM OOM on the big ckpts; skips file objects) ---
 _orig_load = torch.load
 def _mmap_load(*a, **k):
@@ -79,6 +81,8 @@ def sam3_mask(image: Image.Image, prompt: str) -> Image.Image:
     if masks.ndim == 4:
         masks = masks[:, 0]
     if len(scores) == 0 or scores.max() < 0.3:
+        gr.Warning(f'SAM 3 found no confident match for "{prompt}" — keeping the full image. '
+                   "Try a more specific prompt, or switch to rembg auto.")
         return Image.new("L", (w, h), 255)
     m = (masks[int(scores.argmax())] > 0.5).astype(np.uint8) * 255
     return Image.fromarray(m).resize((w, h), Image.NEAREST)
@@ -100,42 +104,51 @@ def prep_rgba(image: Image.Image, bg_mode: str, prompt: str):
 # cache the last generated NORMALIZED mesh per tab, so we can resize/re-export
 # instantly (no GPU re-run).
 _LAST: dict = {}
-# multiply a mm-sized mesh by this to express it in the chosen GLB unit
-_UNIT_FACTOR = {"mm": 1.0, "cm": 0.1, "m": 0.001}
 
 
-def _export(tag, real_mm=0.0, axis="tallest", glb_unit="mm"):
-    """Scale the cached normalized mesh to `real_mm` and write a GLB (in glb_unit)
-    + an STL (always mm, for slicers). Returns (glb_path, dl_path, info)."""
+def _export(tag, real_size=0.0, size_unit="mm", axis="tallest", obj_unit="mm"):
+    """Scale the cached normalized mesh so `axis` measures `real_size` (given in
+    `size_unit`), then write each format in the unit its consumers assume:
+      • GLB — always metres (glTF has no unit field; the spec defines 1 unit = 1 m,
+        so any other choice imports at the wrong size in Blender/Unity/three.js)
+      • STL — always mm (what slicers assume)
+      • OBJ — raw numbers in `obj_unit`, for tools where you type/expect a unit
+    Returns (viewer_glb, download_paths, info)."""
     base = _LAST.get(tag)
     if base is None:
         raise gr.Error("Generate a mesh first, then resize.")
     mesh = base.copy()
-    ext = mesh.extents  # normalized units
-    scaled = False
-    if real_mm and float(real_mm) > 0:
-        ref = float(max(ext)) if axis == "tallest" else float(ext[{"X": 0, "Y": 1, "Z": 2}[axis]])
-        if ref > 0:
-            mesh.apply_scale(float(real_mm) / ref)   # mesh now in mm
-            scaled = True
+    real_mm = size_to_mm(real_size or 0.0, size_unit)
+    factor = scale_factor(mesh.extents, real_mm, axis)
+    if factor is not None:
+        mesh.apply_scale(factor)   # mesh now in mm
 
-    e_mm = mesh.extents
-    # GLB in the requested unit (glTF's native unit is metres -> use 'm' for Blender/Unity/web)
-    glb_mesh = mesh.copy(); glb_mesh.apply_scale(_UNIT_FACTOR.get(glb_unit, 1.0))
-    glb = SAVE / f"gui_{tag}_{glb_unit}.glb"; glb_mesh.export(glb)
-    stl = SAVE / f"gui_{tag}.stl"; mesh.export(stl)   # STL stays in mm
+    for old in SAVE.glob(f"gui_{tag}*"):   # drop stale exports from earlier unit choices
+        old.unlink(missing_ok=True)
 
-    if scaled:
-        dims = f"**{e_mm[0]:.1f} × {e_mm[1]:.1f} × {e_mm[2]:.1f} mm** (W×H×D)"
-        extra = f" · GLB encoded in **{glb_unit}** · STL(mm): `{stl.name}`"
-    else:
-        dims = f"**{e_mm[0]:.2f} × {e_mm[1]:.2f} × {e_mm[2]:.2f}** (normalized — set a real size to scale)"
-        extra = ""
-    info = f"size: {dims} · {len(mesh.vertices):,} verts{extra}"
-    return str(glb), str(glb), info
+    e = mesh.extents
+    glb_mesh = mesh.copy()
+    if factor is not None:
+        glb_mesh.apply_scale(FROM_MM["m"])    # mm -> metres, the glTF standard
+    glb = SAVE / f"gui_{tag}.glb"; glb_mesh.export(glb)
+
+    if factor is None:
+        # No real size yet: GLB only (for viewing). Holding back STL/OBJ keeps a
+        # "2 mm bottle" in normalized units from ever reaching a slicer.
+        info = (f"size: **{e[0]:.2f} × {e[1]:.2f} × {e[2]:.2f}** (normalized — set a real size to scale) · "
+                f"{len(mesh.vertices):,} verts · STL/OBJ are written once a real size is set")
+        return str(glb), [str(glb)], info
+
+    stl = SAVE / f"gui_{tag}.stl"; mesh.export(stl)
+    obj_mesh = mesh.copy(); obj_mesh.apply_scale(FROM_MM[obj_unit])
+    obj = SAVE / f"gui_{tag}_{obj_unit}.obj"; obj_mesh.export(obj)
+    info = (f"size: **{e[0]:.1f} × {e[1]:.1f} × {e[2]:.1f} mm** (W×H×D) · "
+            f"scaled axis: {echo_units(real_mm)} · {len(mesh.vertices):,} verts · "
+            f"GLB in metres (glTF standard) · STL in mm · OBJ in {obj_unit}")
+    return str(glb), [str(glb), str(stl), str(obj)], info
 
 
-def _finish(mesh, keep_largest, tag, real_mm=0.0, axis="tallest", glb_unit="mm"):
+def _finish(mesh, keep_largest, tag, real_size=0.0, size_unit="mm", axis="tallest", obj_unit="mm"):
     if keep_largest:
         try:
             comps = mesh.split(only_watertight=False)
@@ -144,22 +157,22 @@ def _finish(mesh, keep_largest, tag, real_mm=0.0, axis="tallest", glb_unit="mm")
         except Exception:
             pass
     _LAST[tag] = mesh.copy()              # cache normalized mesh for later resizes
-    return _export(tag, real_mm, axis, glb_unit)
+    return _export(tag, real_size, size_unit, axis, obj_unit)
 
 
-def gen_single(image, bg_mode, prompt, steps, octree, guidance, seed, keep_largest, real_mm, axis, unit):
+def gen_single(image, bg_mode, prompt, steps, octree, guidance, seed, keep_largest, real_size, size_unit, axis, obj_unit):
     if image is None:
         raise gr.Error("Upload an image first.")
     image = Image.fromarray(image) if isinstance(image, np.ndarray) else image
     rgba, preview = prep_rgba(image, bg_mode, prompt)
-    gen = torch.Generator(device=DEVICE).manual_seed(int(seed))
+    gen = torch.Generator(device=DEVICE).manual_seed(int(seed or 0))   # field can be cleared -> None
     mesh = single_pipe()(image=rgba, num_inference_steps=int(steps), octree_resolution=int(octree),
                          guidance_scale=float(guidance), generator=gen, output_type="trimesh")[0]
-    glb, dl, info = _finish(mesh, keep_largest, "single", real_mm, axis, unit)
+    glb, dl, info = _finish(mesh, keep_largest, "single", real_size, size_unit, axis, obj_unit)
     return preview, glb, dl, info
 
 
-def gen_mv(front, left, back, right, bg_mode, prompt, steps, octree, guidance, seed, keep_largest, real_mm, axis, unit):
+def gen_mv(front, left, back, right, bg_mode, prompt, steps, octree, guidance, seed, keep_largest, real_size, size_unit, axis, obj_unit):
     raw = {"front": front, "left": left, "back": back, "right": right}
     raw = {k: v for k, v in raw.items() if v is not None}
     if not raw:
@@ -170,10 +183,10 @@ def gen_mv(front, left, back, right, bg_mode, prompt, steps, octree, guidance, s
         rgba, prev = prep_rgba(im, bg_mode, prompt)
         views[tag] = rgba
         previews.append(np.array(prev.convert("RGB")))
-    gen = torch.Generator(device=DEVICE).manual_seed(int(seed))
+    gen = torch.Generator(device=DEVICE).manual_seed(int(seed or 0))   # field can be cleared -> None
     mesh = mv_pipe()(image=views, num_inference_steps=int(steps), octree_resolution=int(octree),
                      guidance_scale=float(guidance), generator=gen, output_type="trimesh")[0]
-    glb, dl, info = _finish(mesh, keep_largest, "mv", real_mm, axis, unit)
+    glb, dl, info = _finish(mesh, keep_largest, "mv", real_size, size_unit, axis, obj_unit)
     info = f"views used: {list(views.keys())} · " + info
     return previews, glb, dl, info
 
@@ -192,10 +205,12 @@ def _controls():
     seed = gr.Number(value=42, label="Seed", precision=0)
     keep = gr.Checkbox(value=True, label="Keep largest component")
     with gr.Row():
-        real_size = gr.Number(value=0, label="Known real size (mm) — 0 = leave normalized")
+        real_size = gr.Number(value=0, label="Known real size — 0 = leave normalized")
+        size_unit = gr.Dropdown(["mm", "cm", "in"], value="mm", label="…size given in")
         axis = gr.Dropdown(["tallest", "X", "Y", "Z"], value="tallest", label="…measured along")
-        unit = gr.Dropdown(["mm", "cm", "m"], value="mm", label="GLB unit (use 'm' for Blender/Unity/web)")
-    return bg, prompt, steps, octree, guidance, seed, keep, real_size, axis, unit
+    obj_unit = gr.Dropdown(["mm", "cm", "in"], value="mm",
+                           label="OBJ numbers unit (GLB is always metres, STL always mm)")
+    return bg, prompt, steps, octree, guidance, seed, keep, real_size, size_unit, axis, obj_unit
 
 
 with gr.Blocks(title="photo-to-mesh") as demo:
@@ -206,17 +221,17 @@ with gr.Blocks(title="photo-to-mesh") as demo:
             with gr.Row():
                 with gr.Column():
                     s_in = gr.Image(label="Input image", type="pil", value=default_img)
-                    s_bg, s_prompt, s_steps, s_octree, s_guid, s_seed, s_keep, s_real, s_axis, s_unit = _controls()
+                    s_bg, s_prompt, s_steps, s_octree, s_guid, s_seed, s_keep, s_real, s_sizeu, s_axis, s_obju = _controls()
                     s_btn = gr.Button("Generate mesh", variant="primary")
                     s_resize = gr.Button("↺ Resize & re-export (no re-generate)")
                 with gr.Column():
                     s_prev = gr.Image(label="Masked input")
                     s_model = gr.Model3D(label="Result — drag to orbit")
                     s_info = gr.Markdown()
-                    s_dl = gr.File(label="Download .glb")
-            s_btn.click(gen_single, [s_in, s_bg, s_prompt, s_steps, s_octree, s_guid, s_seed, s_keep, s_real, s_axis, s_unit],
+                    s_dl = gr.File(label="Download — .glb (metres) · .stl (mm) · .obj")
+            s_btn.click(gen_single, [s_in, s_bg, s_prompt, s_steps, s_octree, s_guid, s_seed, s_keep, s_real, s_sizeu, s_axis, s_obju],
                         [s_prev, s_model, s_dl, s_info])
-            s_resize.click(lambda r, a, u: _export("single", r, a, u), [s_real, s_axis, s_unit],
+            s_resize.click(lambda r, su, a, ou: _export("single", r, su, a, ou), [s_real, s_sizeu, s_axis, s_obju],
                            [s_model, s_dl, s_info])
 
         # ---------------- Multi-view ----------------
@@ -231,18 +246,18 @@ with gr.Blocks(title="photo-to-mesh") as demo:
                     with gr.Row():
                         m_back = gr.Image(label="Back", type="pil")
                         m_right = gr.Image(label="Right (270°)", type="pil")
-                    m_bg, m_prompt, m_steps, m_octree, m_guid, m_seed, m_keep, m_real, m_axis, m_unit = _controls()
+                    m_bg, m_prompt, m_steps, m_octree, m_guid, m_seed, m_keep, m_real, m_sizeu, m_axis, m_obju = _controls()
                     m_btn = gr.Button("Generate mesh (multi-view)", variant="primary")
                     m_resize = gr.Button("↺ Resize & re-export (no re-generate)")
                 with gr.Column():
                     m_prev = gr.Gallery(label="Masked views", columns=2, height=240)
                     m_model = gr.Model3D(label="Result — drag to orbit")
                     m_info = gr.Markdown()
-                    m_dl = gr.File(label="Download .glb")
+                    m_dl = gr.File(label="Download — .glb (metres) · .stl (mm) · .obj")
             m_btn.click(gen_mv,
-                        [m_front, m_left, m_back, m_right, m_bg, m_prompt, m_steps, m_octree, m_guid, m_seed, m_keep, m_real, m_axis, m_unit],
+                        [m_front, m_left, m_back, m_right, m_bg, m_prompt, m_steps, m_octree, m_guid, m_seed, m_keep, m_real, m_sizeu, m_axis, m_obju],
                         [m_prev, m_model, m_dl, m_info])
-            m_resize.click(lambda r, a, u: _export("mv", r, a, u), [m_real, m_axis, m_unit],
+            m_resize.click(lambda r, su, a, ou: _export("mv", r, su, a, ou), [m_real, m_sizeu, m_axis, m_obju],
                            [m_model, m_dl, m_info])
 
 if __name__ == "__main__":

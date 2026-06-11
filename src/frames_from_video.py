@@ -9,6 +9,7 @@ window so you don't feed motion-blurred frames into VGGT/COLMAP.
 """
 from __future__ import annotations
 import argparse
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -29,6 +30,8 @@ def main() -> None:
     ap.add_argument("--window", type=int, default=3, help="keep sharpest 1 of every N sampled frames")
     args = ap.parse_args()
 
+    if not shutil.which("ffmpeg"):
+        raise SystemExit("ffmpeg not found on PATH — install it first (e.g. apt install ffmpeg).")
     out = Path(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)
 
@@ -50,7 +53,7 @@ def main() -> None:
             step = len(kept) / args.max
             kept = [kept[int(i * step)] for i in range(args.max)]
         for j, p in enumerate(kept):
-            cv2.imwrite(str(out / f"img_{j:04d}.jpg"), cv2.imread(str(p)))
+            shutil.copy2(p, out / f"img_{j:04d}.jpg")   # copy as-is: no second JPEG recompression
 
     print(f"Wrote {len(kept)} frames -> {out}")
 

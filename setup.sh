@@ -66,6 +66,12 @@ ensure_uv() {
   export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 }
 
+require_venv() {
+  [ -f .venv/bin/activate ] || { echo "error: .venv missing — run ./setup.sh core first" >&2; exit 1; }
+  # shellcheck disable=SC1091
+  source .venv/bin/activate
+}
+
 setup_core() {
   ensure_uv
   if [ -d .venv ]; then
@@ -99,8 +105,7 @@ NOTE
 }
 
 setup_routeB() {
-  # shellcheck disable=SC1091
-  source .venv/bin/activate
+  require_venv
   log "Route B: installing a pip CUDA toolkit so the 2DGS rasterizer can compile (no sudo)"
   uv pip install nvidia-cuda-nvcc-cu12 nvidia-cuda-runtime-cu12 nvidia-cuda-cccl-cu12
   # Point the build at the pip-provided nvcc.
@@ -124,8 +129,7 @@ setup_routeB() {
 }
 
 setup_routeC() {
-  # shellcheck disable=SC1091
-  source .venv/bin/activate
+  require_venv
   log "Route C: cloning Hunyuan3D-2.1 (feed-forward image->mesh, pinned)"
   [ -d routeC_feedforward/Hunyuan3D-2.1 ] || \
     git clone https://github.com/tencent-hunyuan/Hunyuan3D-2.1 routeC_feedforward/Hunyuan3D-2.1
@@ -164,8 +168,7 @@ setup_routeC() {
 setup_download() {
   # Pre-download model checkpoints into the local HF cache so first run is instant.
   # Everything is OPEN WEIGHTS that run locally — there is no paid API.
-  # shellcheck disable=SC1091
-  source .venv/bin/activate
+  require_venv
   export HF_HUB_ENABLE_HF_TRANSFER=1
   WHAT="${2:-hunyuan-shape}"
   case "$WHAT" in
