@@ -98,6 +98,9 @@ setup_core() {
 
   log "installing SAM 3 (concept-prompt object masking) from GitHub, pinned"
   uv pip install "git+https://github.com/facebookresearch/sam3.git@${SAM3_REF}"
+  # SAM 3 imports pycocotools at import time but never declares it as a dependency,
+  # so `import sam3` (hence the GUI's masking) fails without this.
+  uv pip install pycocotools
   cat <<'NOTE'
   NOTE: SAM 3 checkpoints are gated on Hugging Face. Three ways to proceed:
         1. huggingface-cli login, then request access on the SAM 3 model page
