@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from common import list_images, ensure_dir  # noqa: E402
+from common import ensure_dir, list_images, sam3_repo_override  # noqa: E402
 
 
 def test_list_images_sorted_absolute_and_filtered(tmp_path):
@@ -26,3 +26,15 @@ def test_ensure_dir_creates_nested_and_is_idempotent(tmp_path):
     assert ensure_dir(target) == target
     assert target.is_dir()
     assert ensure_dir(target) == target  # second call must not raise
+
+
+def test_sam3_repo_override_defaults_to_official(monkeypatch):
+    monkeypatch.delenv("SAM3_HF_REPO", raising=False)
+    assert sam3_repo_override() is None
+    monkeypatch.setenv("SAM3_HF_REPO", "   ")   # blank/whitespace = unset
+    assert sam3_repo_override() is None
+
+
+def test_sam3_repo_override_reads_and_trims_env(monkeypatch):
+    monkeypatch.setenv("SAM3_HF_REPO", "  1038lab/sam3  ")
+    assert sam3_repo_override() == "1038lab/sam3"

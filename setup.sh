@@ -95,11 +95,12 @@ setup_core() {
   log "installing SAM 3 (concept-prompt object masking) from GitHub, pinned"
   uv pip install "git+https://github.com/facebookresearch/sam3.git@${SAM3_REF}"
   cat <<'NOTE'
-  NOTE: SAM 3 checkpoints are gated on Hugging Face. One-time (optional —
-        the GUI's "rembg auto" background removal works without it):
-        huggingface-cli login           # paste an HF token
-        # then request access on the SAM 3 model page.
-        Weights download automatically on first run of src/mask_sam3.py.
+  NOTE: SAM 3 checkpoints are gated on Hugging Face. Three ways to proceed:
+        1. huggingface-cli login, then request access on the SAM 3 model page
+           (weights download automatically on first run of src/mask_sam3.py).
+        2. Skip masking: the GUI's "rembg auto" background removal needs no account.
+        3. Skip the gate: set SAM3_HF_REPO to an ungated mirror you trust to keep
+           text-prompted masking (see README -> "SAM 3 access"; license/trust caveats apply).
 NOTE
   log "core ready.  VGGT-1B + SAM 3 weights download automatically on first run."
 }
