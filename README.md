@@ -39,9 +39,10 @@ Upload a photo, click **Generate mesh**, orbit the result, download. The first
 generate downloads the shape weights (~8 GB; multi-view adds ~5 GB on its first
 use) — or pre-fetch with `./setup.sh download hunyuan-shape`.
 
-> **SAM 3 masking is optional.** Its weights are gated on Hugging Face
-> (`huggingface-cli login`, then request access on the model page). Until then,
-> pick **`rembg auto`** as background removal — it needs no account.
+> **SAM 3 masking is optional, and the gate is avoidable.** Its weights are gated
+> on Hugging Face. Until you have access, pick **`rembg auto`** background removal
+> (no account), or point **`SAM3_HF_REPO`** at an ungated mirror you trust to keep
+> text-prompted masking — see [SAM 3 access](#sam-3-access-gated-weights).
 
 ## Requirements
 
@@ -53,6 +54,31 @@ use) — or pre-fetch with `./setup.sh download hunyuan-shape`.
 | **Disk** | ~8 GB (shape) / ~15 GB (shape + texture), +~5 GB for multi-view, +~5 GB for VGGT. Cached in `~/.cache`; everything is offline after the first run. |
 | **OS / Python** | Linux (tested). Python 3.10–3.12, managed by `uv`. No sudo required anywhere. |
 | **CUDA wheels** | `cu128` index by default (required for Blackwell/RTX 50xx, fine on Ampere+). Override: `CUDA_INDEX=https://download.pytorch.org/whl/cu124 ./setup.sh core`. |
+
+## SAM 3 access (gated weights)
+
+SAM 3's text-prompted masking is optional, but its weights are **gated** on
+Hugging Face — and SAM 3.1's are gated identically, so a version bump does not
+help here (SAM 3.1 is a video-tracking upgrade; this project only does
+single-image masking). Three ways to proceed:
+
+1. **Request access** (best if you can): `huggingface-cli login`, then accept the
+   terms on the [facebook/sam3](https://huggingface.co/facebook/sam3) model page.
+   Weights download on first run.
+2. **Use rembg instead**: pick `rembg auto` in the GUI. No account, but it removes
+   background by saliency — no text prompts.
+3. **Point at an ungated mirror you trust**: set `SAM3_HF_REPO` (and `SAM3_CKPT`
+   if the mirror renames the checkpoint, default `sam3.pt`):
+
+   ```bash
+   SAM3_HF_REPO=org/your-trusted-mirror ./run_gui.sh
+   ```
+
+   Community re-hosts exist (e.g. `1038lab/sam3`, `AEmotionStudio/sam3`) — **vet
+   them yourself**. Two caveats: Meta's SAM License still governs use (a mirror
+   does not relicense it), and a checkpoint is a pickle that runs code on load, so
+   prefer a reputable publisher. Unset, the official `facebook/sam3` stays the
+   default.
 
 ## The GUI
 

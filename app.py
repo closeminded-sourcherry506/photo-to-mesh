@@ -68,9 +68,9 @@ def mv_pipe():
 _SAM = {"proc": None}     # lazy SAM 3
 def sam3_mask(image: Image.Image, prompt: str) -> Image.Image:
     if _SAM["proc"] is None:
-        from sam3.model_builder import build_sam3_image_model
         from sam3.model.sam3_image_processor import Sam3Processor
-        _SAM["proc"] = Sam3Processor(build_sam3_image_model())
+        from common import build_sam3
+        _SAM["proc"] = Sam3Processor(build_sam3())
     proc = _SAM["proc"]; w, h = image.size
     with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
         st = proc.set_image(image)

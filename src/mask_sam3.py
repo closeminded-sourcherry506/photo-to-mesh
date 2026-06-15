@@ -24,7 +24,7 @@ import numpy as np
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import list_images, ensure_dir  # noqa: E402
+from common import build_sam3, ensure_dir, list_images  # noqa: E402
 
 
 def main() -> None:
@@ -38,11 +38,9 @@ def main() -> None:
     args = ap.parse_args()
 
     import torch
-    from sam3.model_builder import build_sam3_image_model
     from sam3.model.sam3_image_processor import Sam3Processor
 
-    model = build_sam3_image_model()
-    processor = Sam3Processor(model)
+    processor = Sam3Processor(build_sam3())
 
     paths = list_images(args.images)
     out = ensure_dir(args.out)
