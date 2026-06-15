@@ -80,8 +80,9 @@ setup_core() {
   if [ -d .venv ]; then
     log "reusing existing venv (.venv)"
   else
-    log "creating venv (.venv) with Python 3.12"
-    uv venv --python 3.12 .venv
+    log "creating venv (.venv) with Python 3.11"
+    # 3.11, not 3.12: several Route C deps (e.g. pymeshlab 2022.2.post3) ship no cp312 wheel.
+    uv venv --python 3.11 .venv
   fi
   # shellcheck disable=SC1091
   source .venv/bin/activate
@@ -142,13 +143,19 @@ setup_routeC() {
 
   # IMPORTANT: the repo pins torch 2.5.1+cu124, which does NOT run on Blackwell/RTX 5090.
   # We keep the torch from `setup.sh core` and install the rest WITHOUT touching torch.
-  log "installing Hunyuan3D deps (keeping our torch, ignoring upstream's CN mirrors)"
+  log "installing Hunyuan3D deps (keeping our torch, dropping broken/CN-mirror pins)"
   HY_REQS="$(mktemp)"
-  # Drop torch* (we keep the cu128 build from `core`) and the repo's --extra-index-url
-  # lines (China mirrors that hang uv's resolution); install from $PYPI_INDEX. mktemp
-  # avoids a fixed /tmp name that collides/Permission-denies across users.
-  grep -viE '^(torch|torchvision|torchaudio)\b|^--(extra-)?index-url' "$H/requirements.txt" > "$HY_REQS" || true
-  uv pip install --index-url "$PYPI_INDEX" -r "$HY_REQS" || true
+  # Sanitize upstream's requirements.txt before handing it to uv:
+  #   torch*       keep the build installed by `core` (its 2.5.1 pin breaks Blackwell)
+  #   numpy        its ==1.24.4 pin is unsatisfiable with pandas==2.2.2 (needs >=1.26);
+  #                let numpy come from `core` (numpy<2.2), which satisfies pandas
+  #   bpy          ==4.0 does not exist on PyPI, and the shape path doesn't need it
+  #   --*index-url China mirrors that stall uv's resolution from outside CN
+  # mktemp avoids a fixed /tmp name that collides/Permission-denies across users.
+  grep -viE '^(torch|torchvision|torchaudio|numpy|bpy)\b|^--(extra-)?index-url' "$H/requirements.txt" > "$HY_REQS" || true
+  if ! uv pip install --index-url "$PYPI_INDEX" -r "$HY_REQS"; then
+    log "[warn] some Hunyuan deps failed to install — shape-only may still work; review the errors above"
+  fi
   rm -f "$HY_REQS"
 
   log "building texture-stage extensions (custom_rasterizer + mesh painter)"
