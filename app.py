@@ -104,10 +104,19 @@ def sam3_mask(image: Image.Image, prompt: str) -> Image.Image:
 def prep_rgba(image: Image.Image, bg_mode: str, prompt: str):
     image = image.convert("RGB")
     if bg_mode == "SAM 3 prompt":
-        mask = sam3_mask(image, prompt)
-        rgba = image.convert("RGBA"); rgba.putalpha(mask)
-        prev = Image.composite(image, Image.new("RGB", image.size, (255, 255, 255)), mask)
-        return rgba, prev
+        try:
+            mask = sam3_mask(image, prompt)
+            rgba = image.convert("RGBA"); rgba.putalpha(mask)
+            prev = Image.composite(image, Image.new("RGB", image.size, (255, 255, 255)), mask)
+            return rgba, prev
+        except Exception as e:
+            # SAM 3 weights are gated on HF; if they're inaccessible (403 / no token /
+            # no granted access) or the load otherwise fails, degrade to rembg rather
+            # than 500-ing the request.
+            gr.Warning(f"SAM 3 unavailable ({type(e).__name__}) — falling back to rembg. "
+                       "For text-prompted masking, request access to facebook/sam3 or set "
+                       "SAM3_HF_REPO to an ungated mirror (see README → SAM 3 access).")
+            bg_mode = "rembg auto"
     if bg_mode == "rembg auto":
         from rembg import remove
         rgba = remove(image); return rgba, rgba.convert("RGB")
