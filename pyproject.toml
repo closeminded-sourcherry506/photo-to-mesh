@@ -16,12 +16,15 @@ dependencies = [
     "tqdm",
     "trimesh",
     "open3d>=0.18",
-    "huggingface_hub",
+    # <1.0: Hunyuan's transformers==4.46.0 (and tokenizers) require huggingface-hub<1.0;
+    # leaving this unpinned lets `core` pull a 1.x that breaks `import transformers`.
+    "huggingface_hub<1.0",
     "safetensors",
     "einops",
     "scipy",
     "matplotlib",
-    "gradio",
+    # <6: the GUI (and Hunyuan's pin) target Gradio 5.x; 6.x has breaking API changes.
+    "gradio<6",
 ]
 
 [dependency-groups]
