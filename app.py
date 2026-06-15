@@ -11,7 +11,20 @@ Then open the printed URL (e.g. http://localhost:7860).
 from __future__ import annotations
 import os
 import sys
+import tempfile
 from pathlib import Path
+
+# Gradio stores uploaded files under GRADIO_TEMP_DIR (default /tmp/gradio). On a
+# shared machine that directory is frequently already owned by another user (or
+# root from a prior sudo run), so uploads die with PermissionError ([Errno 13])
+# when Gradio mkdir's into it. Default it to a user-owned path (still overridable)
+# BEFORE importing gradio, which captures the value at import time.
+_gtmp = os.environ.get("GRADIO_TEMP_DIR") or str(Path.home() / ".cache" / "photo-to-mesh" / "gradio")
+try:
+    Path(_gtmp).mkdir(parents=True, exist_ok=True)
+except OSError:
+    _gtmp = tempfile.mkdtemp(prefix="photo-to-mesh-gradio-")
+os.environ["GRADIO_TEMP_DIR"] = _gtmp
 
 import numpy as np
 import torch
