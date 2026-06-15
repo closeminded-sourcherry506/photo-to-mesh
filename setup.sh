@@ -22,6 +22,9 @@ cd "$(dirname "$0")"
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 
 CUDA_INDEX="${CUDA_INDEX:-https://download.pytorch.org/whl/cu128}"
+# Hunyuan's requirements.txt pins China PyPI mirrors (--extra-index-url) that stall
+# uv's resolution from outside China; we strip those and install from this index.
+PYPI_INDEX="${PYPI_INDEX:-https://pypi.org/simple}"
 STAGE="${1:-core}"
 
 # Pinned upstream revisions — a known-good set, bump deliberately (and together).
@@ -139,9 +142,14 @@ setup_routeC() {
 
   # IMPORTANT: the repo pins torch 2.5.1+cu124, which does NOT run on Blackwell/RTX 5090.
   # We keep the torch from `setup.sh core` and install the rest WITHOUT touching torch.
-  log "installing Hunyuan3D deps (keeping our torch)"
-  grep -viE '^(torch|torchvision|torchaudio)\b' "$H/requirements.txt" > /tmp/hy_reqs.txt || true
-  uv pip install -r /tmp/hy_reqs.txt || true
+  log "installing Hunyuan3D deps (keeping our torch, ignoring upstream's CN mirrors)"
+  HY_REQS="$(mktemp)"
+  # Drop torch* (we keep the cu128 build from `core`) and the repo's --extra-index-url
+  # lines (China mirrors that hang uv's resolution); install from $PYPI_INDEX. mktemp
+  # avoids a fixed /tmp name that collides/Permission-denies across users.
+  grep -viE '^(torch|torchvision|torchaudio)\b|^--(extra-)?index-url' "$H/requirements.txt" > "$HY_REQS" || true
+  uv pip install --index-url "$PYPI_INDEX" -r "$HY_REQS" || true
+  rm -f "$HY_REQS"
 
   log "building texture-stage extensions (custom_rasterizer + mesh painter)"
   export_arch
